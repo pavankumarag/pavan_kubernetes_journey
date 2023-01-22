@@ -1,0 +1,157 @@
+//pod
+kubectl run nginx --image nginx
+kubectl get events
+kubectl logs nginx or kubectl logs -f nginx //-f for live logs
+kubectl run --restart=Never --image=busybox static-busybox --command -- sleep 1000
+kubectl describe pod nginx
+kubectl get pods
+kubectl get pod webapp -o yaml > my-new-pod.yaml //get yaml file for a pod
+kubectl get pods -o wide
+kubectl delete pod nginx
+kubectl create -f pod-definition.yml or kc apply -f pod-definition.yml
+kubectl edit pod pod webapp //only editable fields are below but anything of deploymemt cna be editable
+spec.containers[*].image
+spec.initContainers[*].image
+spec.activeDeadlineSeconds
+spec.tolerations
+
+//replicationController
+kubectl create -f rc-definition.yaml
+kubectl get pods
+kubectl get replicationcontrollers
+kubectl describe replicationcontrollers new-replica-set
+(1)vi rc-definition.yaml and kubectl apply -f rc-definition.yaml
+(2)kubectl edit -f rc-definition.yaml 
+(3)kubectl scale --replicas 6 replicationcontroller frontend
+kubectl delete replicationcontrollers frontend
+
+//replicationset
+kubectl create -f rs-definition.yaml
+kubectl get pods
+kubectl get replicasets.apps
+kubectl describe replicasets.apps frontend
+(1)vi rs-definition.yaml and kubectl apply -f rs-definition.yaml
+(2)kubectl edit -f rs-definition.yaml
+(3)kubectl scale --replicas 7 replicaset frontend
+kubectl delete replicasets.apps frontend
+
+//deployment
+kubectl create -f deployment-definition.yaml
+kubectl get deployments.apps
+kubectl get all
+kubectl scale --replicas 6 deployment frontend and other (1) and (2) option works as in replicaset
+kubectl delete deployments.apps frontend
+
+//Update and Rollback deployment
+kubectl apply -f deployment-definition.yaml
+  //Update
+(1)vi deploymemt-definition.yml and kubectl apply -f deployment-definition.yaml
+(2)kubectl edit deployments.apps frontend
+(3)kubectl set image deployment frontend nginx=nginx:1.7.1
+  //status
+kubectl rollout status deployment frontend
+  //history of revisions
+kubectl rollout history deployment frontend
+  //rollback
+kubectl rollout undo deployment frontend
+
+//service
+kubectl create -f service-definition.yaml
+kubectl get services
+kubectl describe service frontend
+minikube service frontend --url
+
+//dryrun to create yaml instead of handwriting every yaml
+kubectl run nginx --image=nginx --dry-run=client -o yaml
+kubectl create deployment --image=nginx nginx --dry-run=client -o yaml
+kubectl create deployment --image=nginx nginx --dry-run=client -o yaml > nginx-deployment.yaml
+kubectl create deployment --image=nginx nginx --replicas=4 --dry-run=client -o yaml > nginx-deployment.yaml
+//save it to a file, make necessary changes to the file (for example, adding more replicas) and then create the deployment.
+kubectl create -f nginx-deployment.yaml
+
+//namespaces
+kubectl create namespace pavan
+kubectl get namespaces
+kubectl get pods --namespace research
+kubectl run redis --image=redis --namespace=finance
+kubectl get pods --all-namespaces -o wide
+db-service.dev.svc.cluster.local //Blue application in default namespace use to access the database db-service in the dev namespace
+kubectl create -f pod-definition-namespace.yaml
+kubectl config current-context //get current namespace
+kubectl config set-context $(kubectl config current-context) --namespace=pavan //so can create pods directly in pavan namespace
+kubectl create -f resource-quota.yaml 
+kubectl describe namespaces pavan
+kubectl get resourcequotas --namespace=pavan
+kubectl describe resourcequotas/resource-quota-pavan --namespace=pavan
+
+//dryrun
+kubectl run nginx --image=nginx
+kubectl run nginx --image=nginx --dry-run=client -o yaml
+
+kubectl create deployment --image=nginx nginx
+kubectl create deployment nginx --image=nginx --replicas=4
+kubectl create deployment --image=nginx nginx --dry-run=client -o yaml
+
+kubectl expose pod redis --port=6379 --name redis-service --dry-run=client -o yaml //Create a Service named redis-service of type ClusterIP to expose pod redis on port 6379
+kubectl create service clusterip redis --tcp=6379:6379 --dry-run=client -o yaml //This will not use the pods labels as selectors, instead it will assume selectors as app=redis
+kubectl expose pod nginx --type=NodePort --port=80 --name=nginx-service --dry-run=client -o yaml
+kubectl create service nodeport nginx --tcp=80:80 --node-port=30080 --dry-run=client -o yaml
+
+//selectors, labels, annotations
+kubectl get pods --selector app=App1
+kubectl get all  --selector env=prod
+kubectl get pods --selector='bu=finance,env=prod,tier=frontend' or  kubectl get pods --selector bu=finance,env=prod,tier=frontend
+
+//taints and tolerations
+kubectl apply -f pod-definition-manual-scheduling.yaml
+kubectl describe node kubemaster | grep -i taint
+kubectl taint nodes node01 spray=mortein:NoSchedule
+kubectl apply -f pod-def-toleration.yaml
+kubectl taint node controlplane control-plane:NoSchedule- //untaint
+kubectl taint node controlplane node-role.kubernetes.io/control-plane:NoSchedule- //untaint
+
+//node selector and node affinity
+kubectl label nodes node01 color=blue
+kubectl apply -f dep-def-node-selector.yaml
+kubectl apply -f dep-def-node-affinity.yaml
+kubectl apply -f dep-def-nodeaffinity-keyonly.yaml
+
+//resource requests and resource limits
+kubectl apply -f cpu-limit.yaml
+kubectl apply -f mem-limit.yaml
+//To-Do: find a way to find current values
+kubectl apply -f pod-def-resource-limits.yaml //hack is get current yaml file for pod(kubectl get pod <pod> -o yaml > file.yaml) and edit these properties
+
+//daemon sets 
+kubectl apply -f daemon-set-def.yaml
+kubectl get daemonsets.apps --all-namespaces
+kubectl describe daemonsets.apps/kube-proxy --namespace kube-system
+//An easy way to create a DaemonSet is to first generate a YAML file for a Deployment with the command kubectl create deployment elasticsearch --image=registry.k8s.io/fluentd-elasticsearch:1.20 -n kube-system --dry-run=client -o yaml > fluentd.yaml. Next, remove the replicas, strategy and status fields from the YAML file using a text editor. Also, change the kind from Deployment to DaemonSet.
+//Finally, create the Daemonset by running kubectl create -f fluentd.yaml
+
+//logging and monitoring. This involves manually deploying metric server first
+git clone https://github.com/kodekloudhub/kubernetes-metrics-server.git
+kubectl create -f .
+kubectl top node
+kubectl top pod
+kubectl logs -f <pod> <container> //live logs a container in a pod
+
+//application lifecycle management
+kubectl rollout status deployment <dep>
+kubectl rollout history deploymemt <dep>
+kubectl rollout undo deploymemt <dep>
+kubectl apply -f pod-def-env.yaml
+kubectl create configmap app-config1 --from-literal=APP-COLOR=blue --from-literal=APP-SHAPE=circle //configmap imperative
+kubectl apply -f config-map-def.yaml //configmap declarative
+kubectl create configmap app-config1 --from-file=app-config1.properties
+kubectl get configmaps
+kubectl describe configmaps webapp-config-map
+kubectl apply -d pod-def-configmap.yaml
+kubectl get  secrets
+kubectl get  secrets -o yaml // to display encoded value too 
+kubectl describe secrets dashboard-token
+kubectl create secret generic db-secret --from-literal=a=1 --dry-run=client -o yaml > secret-def1.yaml
+echo -n "password123" | base64
+echo -n "cGFzc3dvcmQxMjM=" | base64 --decode
+kubectl apply -f secret-def.yaml
+kubectl apply -f pod-def-secret.yaml
