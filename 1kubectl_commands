@@ -155,3 +155,19 @@ echo -n "password123" | base64
 echo -n "cGFzc3dvcmQxMjM=" | base64 --decode
 kubectl apply -f secret-def.yaml
 kubectl apply -f pod-def-secret.yaml
+kubectl apply -f pod-def-init-containers.yaml
+
+//cluster maintenance
+kubectl drain node01 --ignore-daemonsets
+kubectl uncordon node01
+cluster upgrade commands - https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/ 
+export ETCDCTL_API=3
+etcdctl version
+ETCDCTL_API=3 etcdctl --endpoints=https://[127.0.0.1]:2379 \
+--cacert=/etc/kubernetes/pki/etcd/ca.crt \
+--cert=/etc/kubernetes/pki/etcd/server.crt \
+--key=/etc/kubernetes/pki/etcd/server.key \
+snapshot save /opt/snapshot-pre-boot.db
+etcdctl snapshot restore /opt/snapshot-pre-boot.db
+etcdctl snapshot restore /opt/snapshot-pre-boot.db --data-dir /var/lib/etcd-from-back
+kubectl config view //display all clusters in the node
